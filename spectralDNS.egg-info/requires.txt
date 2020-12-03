@@ -1,0 +1,5 @@
+numpy
+shenfun
+cython
+mpi4py-fft
+mpi4py

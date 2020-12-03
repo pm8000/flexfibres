@@ -1,0 +1,7 @@
+mpi:
+  - 'mpich'
+  #- 'openmpi'
+
+# Need 10.9 to build locally. Not for CIs
+#CONDA_BUILD_SYSROOT:
+#  - /Users/mikaelmortensen/Software/MacOSX-SDKs/MacOSX10.9.sdk # [osx]

@@ -1,0 +1,21 @@
+Metadata-Version: 1.1
+Name: spectralDNS
+Version: 1.2.1
+Summary: spectralDNS -- Spectral Navier-Stokes (and similar) solvers framework
+Home-page: https://github.com/spectralDNS/spectralDNS
+Author: Mikael Mortensen
+Author-email: mikaem@math.uio.no
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Education
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

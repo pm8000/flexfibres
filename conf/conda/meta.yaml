@@ -1,0 +1,49 @@
+package:
+  name: spectraldns
+  version: "{{ GIT_DESCRIBE_TAG }}"
+
+source:
+  git_url: ../../
+
+build:
+  number: 36
+
+requirements:
+
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+
+  host:
+    - python
+    - cython
+    - numpy >=1.14.*
+    - setuptools
+    #- nomkl
+    - {{ mpi }}
+    - pytest-runner
+    - pip
+
+  run:
+    - python
+    - {{ pin_compatible('numpy') }}
+    #- nomkl
+    - {{ mpi }}
+    - hdf5 * mpi_{{ mpi }}_*
+    - h5py * mpi_{{ mpi }}_*
+    - shenfun >=2.0.8
+    - mpi4py-fft >=2.0.3
+    - mpi4py
+    - scipy
+    - sympy
+
+test:
+  source_files:
+    - tests
+
+  imports:
+    - spectralDNS
+    - shenfun
+
+  requires:
+    - pytest
