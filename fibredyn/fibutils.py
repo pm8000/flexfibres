@@ -83,7 +83,7 @@ def func_angdot(e_r, rdot, r_abs):
     return np.cross(e_r, rdot) / r_abs
 
 def func_eps(r_abs):
-    return (r_abs - config.params.fib_L0) / config.params.fib_L0
+    return abs(r_abs - config.params.fib_L0) / config.params.fib_L0
 
 def func_epsdot(e_r, rdot):
     return np.dot(rdot, e_r) / config.params.fib_L0
@@ -221,6 +221,7 @@ def fun_CrankNicolson(z, c, n, n_plus, dt, test='notest', Fz_dyn=0):
 
     # c = context
     c._G[0] =  func_G(c.m[0])
+    c._D=np.zeros([n_plus,3])
     for i in range(1, n_plus):
         c._r[i] = func_r(np.array([z[3*i], z[3*i+1], z[3*i+2]]), np.array([z[3*i-3], z[3*i-2], z[3*i-1]]))
         c._r_abs[i] = func_r_abs(c._r[i])
@@ -251,7 +252,7 @@ def fun_CrankNicolson(z, c, n, n_plus, dt, test='notest', Fz_dyn=0):
         if config.params.coupled_solver:
             c._D_n[i] = func_D_n(c._e_r[i], c.v_rel[i])
             c._D_l[i] = func_D_l(c._e_r[i], c.v_rel[i])
-            c._D[i] = func_D(c._D_n[i], c._D_l[i])
+            c._D[i,:] = func_D(c._D_n[i], c._D_l[i])
 
     # Mass points n:
     c._Q[n] = func_Q(c._M[n], np.zeros(3), c._r[n], c._r_abs[n])
@@ -262,9 +263,9 @@ def fun_CrankNicolson(z, c, n, n_plus, dt, test='notest', Fz_dyn=0):
             c._gfun[6*n_plus-2] = 0
             c._gfun[6*n_plus-1] = 0
         else:
-            c._gfun[6*n_plus-3] = func_gfun_n(c.m[i], c._G[n], c._D[n], c._F[n], c._Q[n])[0]
-            c._gfun[6*n_plus-2] = func_gfun_n(c.m[i], c._G[n], c._D[n], c._F[n], c._Q[n])[1]
-            c._gfun[6*n_plus-1] = func_gfun_n(c.m[i], c._G[n], c._D[n], c._F[n], c._Q[n])[2]
+            c._gfun[6*n_plus-3] = func_gfun_n(c.m[i], c._G[n], c._D[n,:], c._F[n], c._Q[n])[0]
+            c._gfun[6*n_plus-2] = func_gfun_n(c.m[i], c._G[n], c._D[n,:], c._F[n], c._Q[n])[1]
+            c._gfun[6*n_plus-1] = func_gfun_n(c.m[i], c._G[n], c._D[n,:], c._F[n], c._Q[n])[2]
 
     else:   # fiber dynamics solver alone
         if test in ["linstat", "lindyn"]:
@@ -272,13 +273,13 @@ def fun_CrankNicolson(z, c, n, n_plus, dt, test='notest', Fz_dyn=0):
             c._gfun[6*n_plus-2] = 0
             c._gfun[6*n_plus-1] = 0
         elif test == "bend":
-            c._gfun[6*n_plus-3] = func_gfun_n(c.m[i], c._G[n], c._D[n], c._F[n], c._Q[n])[0]
+            c._gfun[6*n_plus-3] = func_gfun_n(c.m[i], c._G[n], c._D[n,:], c._F[n], c._Q[n])[0]
             c._gfun[6*n_plus-2] = 0
             c._gfun[6*n_plus-1] = 0
         else:
-            c._gfun[6*n_plus-3] = func_gfun_n(c.m[i], c._G[n], c._D[n], c._F[n], c._Q[n])[0]
-            c._gfun[6*n_plus-2] = func_gfun_n(c.m[i], c._G[n], c._D[n], c._F[n], c._Q[n])[1]
-            c._gfun[6*n_plus-1] = func_gfun_n(c.m[i], c._G[n], c._D[n], c._F[n], c._Q[n])[2]
+            c._gfun[6*n_plus-3] = func_gfun_n(c.m[i], c._G[n], c._D[n,:], c._F[n], c._Q[n])[0]
+            c._gfun[6*n_plus-2] = func_gfun_n(c.m[i], c._G[n], c._D[n,:], c._F[n], c._Q[n])[1]
+            c._gfun[6*n_plus-1] = func_gfun_n(c.m[i], c._G[n], c._D[n,:], c._F[n], c._Q[n])[2]
 
     c._xdotdot[n] = np.array([c._gfun[6*n_plus-3], c._gfun[6*n_plus-2], c._gfun[6*n_plus-1]])
 
@@ -286,16 +287,16 @@ def fun_CrankNicolson(z, c, n, n_plus, dt, test='notest', Fz_dyn=0):
     for i in range(n-1, 0, -1):
         c._Q[i] = func_Q(c._M[i], c._M[i+1], c._r[i], c._r_abs[i])
         c._gfun[3*n_plus + 3*i] = func_gfun(
-                c.m[i], c._G[i], c._D[i], c._F[i], c._Q[i], c._F[i+1], c._Q[i+1])[0]
+                c.m[i], c._G[i], c._D[i,:], c._F[i], c._Q[i], c._F[i+1], c._Q[i+1])[0]
         c._gfun[3*n_plus + 3*i+1] = func_gfun(
-                c.m[i], c._G[i], c._D[i], c._F[i], c._Q[i], c._F[i+1], c._Q[i+1])[1]
+                c.m[i], c._G[i], c._D[i,:], c._F[i], c._Q[i], c._F[i+1], c._Q[i+1])[1]
         if i == config.params.fib_BC_index_F and test == "bend":
             c._gfun[3*n_plus + 3*i+2] = func_gfun(
-                c.m[i], c._G[i], c._D[i], c._F[i], c._Q[i], c._F[i+1], c._Q[i+1])[2] +\
+                c.m[i], c._G[i], c._D[i,:], c._F[i], c._Q[i], c._F[i+1], c._Q[i+1])[2] +\
                 (1 / c.m[i]) * config.params.fib_BC_Fz
         else:
             c._gfun[3*n_plus + 3*i+2] = func_gfun(
-                c.m[i], c._G[i], c._D[i], c._F[i], c._Q[i], c._F[i+1], c._Q[i+1])[2]
+                c.m[i], c._G[i], c._D[i,:], c._F[i], c._Q[i], c._F[i+1], c._Q[i+1])[2]
         c._xdotdot[i] = np.array([c._gfun[3*n_plus + 3*i], c._gfun[3*n_plus + 3*i+1], c._gfun[3*n_plus + 3*i+2]])
 
     # Mass points 0:
@@ -398,7 +399,6 @@ def update_fibre(c, n, n_plus, test='notest', Fz_dyn=0):
         c.gfun_old[3*i] = np.copy(c.gfun_new[3*i])
         c.gfun_old[3*i+1] = np.copy(c.gfun_new[3*i+1])
         c.gfun_old[3*i+2] = np.copy(c.gfun_new[3*i+2])
-
     c.G[0, ...] = func_G(c.m[0])
     for i in range(1, n_plus):
         c.r[i, ...] = func_r(c.x_new[i, ...], c.x_new[i-1, ...])
@@ -433,7 +433,6 @@ def update_fibre(c, n, n_plus, test='notest', Fz_dyn=0):
             c.D_n[i, ...] = func_D_n(c.e_r[i, ...], c.v_rel[i, ...])
             c.D_l[i, ...] = func_D_l(c.e_r[i, ...], c.v_rel[i, ...])
             c.D[i, ...] = func_D(c.D_n[i, ...], c.D_l[i, ...])
-
     # Mass points n:
     c.Q[n, ...] = func_Q(c.M[n, ...], np.zeros(3), c.r[n, ...], c.r_abs[n])
 

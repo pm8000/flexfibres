@@ -18,7 +18,7 @@ import h5py # Reference: http://docs.h5py.org/en/stable/
 import numpy as np
 from numpy import pi, zeros, sum
 #https://shenfun.readthedocs.io/en/latest/
-from shenfun import Function
+from shenfun import Function, Array
 from shenfun.fourier import energy_fourier
 from spectralDNS import config, get_solver, solve
 # Paraview I/O:
@@ -168,16 +168,18 @@ w = []
 kold = zeros(1)
 im1 = None
 energy_new = None
-def update(context):
+def update(context, backcoupling=False, validate=False):
+    #backcoupling is switched on if called by the corresponding solver
+    #validate is switched on if the fully coupled solver is being validated
     global k, w, im1, energy_new
     c = context
     params = config.params
     solver = config.solver
     curl_hat = Function(c.VT, buffer=c.work[(c.U_hat, 2, True)])
 
-    # print(solver.rank)
-    if solver.rank == 0:
+    if solver.rank == 0 and backcoupling==False:
         c.U_hat[:, 0, 0, 0] = 0
+
 
     if params.solver == 'VV':
         c.U_hat = solver.cross2(c.U_hat, c.K_over_K2, c.W_hat)
@@ -187,7 +189,11 @@ def update(context):
     energy_upper = energy_new - energy_lower
 
     alpha2 = (c.target_energy - energy_upper) /energy_lower
+    beta2 = c.target_energy / (energy_upper + energy_lower)
+    #print("target", c.target_energy)
+    #print(alpha2)
     alpha = np.sqrt(alpha2)
+    beta = np.sqrt(beta2)
 
     #du = c.U_hat*c.k2_mask*(alpha)
     #dus = energy_fourier(du*c.U_hat, c.T)
@@ -195,11 +201,22 @@ def update(context):
     energy_old = energy_new
 
     #c.dU[:] = alpha*c.k2_mask*c.U_hat
-    c.U_hat *= (alpha*c.k2_mask + (1-c.k2_mask))
+    #scale velocities below cutoff wave number
+
+    if (validate==False and alpha2 >= 0) or backcoupling==False:
+        c.U_hat *= (alpha*c.k2_mask + (1-c.k2_mask))
+
+    #if upper wavenumbers have too much energy, downscale all wave numbers
+    elif (validate==False):
+        c.U_hat[:] *= beta
 
     energy_new = energy_fourier(c.U_hat, c.T)
 
-    assert np.sqrt((energy_new-c.target_energy)**2) < 1e-7, np.sqrt((energy_new-c.target_energy)**2)
+    #print("energy new",energy_new)
+    #print("target energy", c.target_energy)
+
+    if validate==False:
+        assert np.sqrt((energy_new-c.target_energy)**2) < 1e-7, np.sqrt((energy_new-c.target_energy)**2)
 
     if params.solver == 'VV':
         c.W_hat = solver.cross2(c.W_hat, c.K, c.U_hat)
@@ -232,12 +249,13 @@ def update(context):
             str_animation = "NS_visualize/Isotropic_"+str(params.tstep)+".png"
             plt.savefig(str_animation)
 
+    """
     if params.tstep % params.compute_spectrum == 0:
         Ek, _, _, _, _ = spectrum(solver, context)
         f = h5py.File(context.spectrumname, driver='mpio', comm=solver.comm)
         f['Turbulence/Ek'].create_dataset(str(params.tstep), data=Ek)
         f.close()
-
+    """
     if params.tstep % params.compute_energy == 0:
         dx, L = params.dx, params.L
         #ww = solver.comm.reduce(sum(curl*curl)/np.prod(params.N)/2)
@@ -292,7 +310,6 @@ def init_from_file(filename, solver, context):
     assert "0" in f["U/3D"]
     U_hat = context.U_hat
     s = context.T.local_slice(True)
-
     U_hat[:] = f["U/3D/0"][:, s[0], s[1], s[2]]
     if solver.rank == 0:
         U_hat[:, 0, 0, 0] = 0.0
@@ -353,6 +370,7 @@ if __name__ == "__main__":
     config.triplyperiodic.add_argument("--Kf2", type=int, default=3)        # (specified) largest wavenumber acted upon by the forcing
     config.triplyperiodic.add_argument("--kd", type=float, default=50.)     #  hyperviscous dissipation wavenumber
     config.triplyperiodic.add_argument("--Re_lam", type=float, default=84.) # microscale Reynolds number, Re_lambda
+    config.triplyperiodic.add_argument("--validate", type=bool, default=False)
 
     # OBS: functions are objects in python, so they can be passed as arguments to other functions.
     # Here, passing the function 'update()' defined above (in Isotropic.py):

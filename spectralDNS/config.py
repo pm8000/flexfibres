@@ -243,19 +243,21 @@ triplyperiodic.add_argument("--coupled_solver", type=bool, default=False,
 triplyperiodic.add_argument("--fib_n", type=int, default=20, help='Number of cylinder segments')
 triplyperiodic.add_argument("--fib_rho", type=float, default=1320., help='Density of the fiber, [fib_rho]=kg/m^3')
 triplyperiodic.add_argument("--fib_d", type=float, default=231e-6, help='Fiber diameter, [fib_d]=m')
-triplyperiodic.add_argument("--fib_L", type=float, default=3.2, help='Initial fiber length at rest, [fib_L]=m')
+triplyperiodic.add_argument("--fib_L", type=float, default=3.2, help='Initial fiber length at rest, must not be larger than domain size [fib_L]=m')
 triplyperiodic.add_argument("--fib_E", type=float, default=13.8e9, help="Young's modulus of the fiber, [fib_E]=Pa")
 triplyperiodic.add_argument("--fib_eta", type=float, default=5.0e3, help="Viscosity of the material, [fib_eta]=Pa·s")
 triplyperiodic.add_argument("--g", type=float, default=-9.80665, help="Acceleration due to gravity, [g]=m/s^2")
 triplyperiodic.add_argument("--fib_m0", type=float, default=0.01, help="Spider's mass, [fib_m0]=kg")
 triplyperiodic.add_argument("--fib_n_threads", type=int, default=1, help="Spider's number of threads")
-triplyperiodic.add_argument("--fib_L0", type=float, default=1., help="Cylindrical element's length")
+triplyperiodic.add_argument("--fib_L0", type=float, default=1.,
+                            help="Cylindrical element's length, must not be longer than 1/3 of the shortest domain length if multiple fibres are simulated")
 triplyperiodic.add_argument("--fib_n_plus", type=int, default=1, help="n + 1")
 triplyperiodic.add_argument("--fib_A", type=float, default=1., help="Cross sectional area of the cylinder")
 triplyperiodic.add_argument("--fib_I", type=float, default=1., help="Area moment of inertia")
 triplyperiodic.add_argument("--fib_m_other", type=float, default=1., help="Spider's mass")
 triplyperiodic.add_argument("--fib_ratioLd", type=float, default=1., help="Ratio L / d")
 triplyperiodic.add_argument("--fib_fixed", type=bool, default=True, help="Coupled solver: if the fiber is fixed at one end, the n^th mass point")
+
 
 #####################
 

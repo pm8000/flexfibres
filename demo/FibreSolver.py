@@ -6,8 +6,10 @@ Joan Clapes Roig
 from __future__ import print_function
 from spectralDNS import config
 from spectralDNS.utilities import Timer
-from fibredyn import fibutils
+from fibredyn import fibutils, fibutils_2way
 import numpy as np
+import random as r
+from fibreHIT import coupleutils_2way
 #import pdb     # -> Python Debugger
 
 def get_fibcontext():
@@ -16,7 +18,6 @@ def get_fibcontext():
 
     The context is an object of the class AttributeDict, which inherits
     from the dict class and defines several dunder methods.
-
     Returns a dictionary that allows to access each local variable defined
     in get_fibcontext(). If we do fib_context = get_fibcontext(), then we can
     access each variable as e.g. fib_context.xdotdot_old and perform any
@@ -41,8 +42,11 @@ def get_fibcontext():
 
     # Variables for the old time step:
     x_old = np.empty((n_plus, 3))
+    x_2_last=np.zeros(n_plus)
     xdot_old = np.empty((n_plus, 3))
+    xdot_last = np.zeros((n_plus, 3))
     xdotdot_old = np.empty((n_plus, 3))
+    xdotdot_last=np.zeros((n_plus, 3))
     z_old = np.zeros(n_plus*6)
     gfun_old = np.zeros(n_plus*6)
     h_old = np.zeros(n_plus*6)
@@ -78,6 +82,7 @@ def get_fibcontext():
     D_n = np.zeros((n_plus, 3))
     D_l = np.zeros((n_plus, 3))
     D = np.zeros((n_plus, 3))
+    D_last = np.zeros((n_plus, 3))
     G = np.zeros((n_plus, 3))
     cross_e = np.zeros((n_plus, 3))
     cross_e_abs = np.zeros(n_plus)
@@ -88,6 +93,14 @@ def get_fibcontext():
     u_ip = np.zeros((n_plus, 3))
     Re = []     # list that will contain all the Reynolds numbers
     nfev = []
+    E_kin=[]
+    E_pot=[]
+    W_f=[]
+    E_is=[]
+    E_pr=[]
+    delta=[]
+    periodic=0  #extra parameter to correct E_pot if fibre goes over boundary
+    convergence=0
 
     # Variables for the iterative method:
     _xdotdot = n_plus*[0]
@@ -320,6 +333,166 @@ def initialize_fibre(context, start=[0, 0, 0], axis=1, vel_ini = 0., axis_vel = 
     # NOTE: ndarray to list (A of type ndarray) -> B = np.ndarray.tolist(A)
     # NOTE: list to ndarray (B of type list) -> A = np.array(B)
 
+def initialize_fibre_multi(context, u1=None, u2=None, u3=None):
+    """initialise fibre at random position and random orientation
+        initial velocity corresponds to average velocity of surrounding
+        grid nodes"""
+    c=context
+    n_plus=config.params.fib_n_plus
+    n=config.params.fib_n
+    for i in range(3):
+        c.x_old[0,i]=r.random()*2*np.pi
+    phi=r.random()*2*np.pi
+    theta=r.random()*np.pi
+    diff_x=config.params.fib_L0*np.sin(theta)*np.cos(phi)
+    diff_y=config.params.fib_L0*np.sin(theta)*np.sin(phi)
+    diff_z=config.params.fib_L0*np.cos(theta)
+
+    for i in range (n_plus):
+        if i!=0:
+            next_x=c.x_old [0,0]+i*diff_x
+            if next_x>=config.params.L[0]:
+                next_x-=config.params.L[0]
+            elif next_x<0:
+                next_x+=config.params.L[0]
+            c.x_old[i,0]=next_x
+            next_y=c.x_old [0,1]+i*diff_y
+            if next_y>=config.params.L[1]:
+                next_y-=config.params.L[1]
+            elif next_y<0:
+                next_y+=config.params.L[1]
+            c.x_old[i,1]=next_y
+            next_z=c.x_old [0,2]+i*diff_z
+            if next_z>=config.params.L[2]:
+                next_z-=config.params.L[2]
+            elif next_z<0:
+                next_z+=config.params.L[2]
+            c.x_old[i,2]=next_z
+
+        # Initialize velocities:
+        u=0
+        v=0
+        w=0
+        if type(u1)!=type(None):
+            useless, points=coupleutils_2way.get_involved_points(c.x_old[i,:], config.params.dx)
+            for j in range(2):
+                for k in range(2):
+                    for l in range(2):
+                        u+=u1[int(points[j,0]), int(points[k,1]), int(points[l,2])]
+                        v+=u2[int(points[j,0]), int(points[k,1]), int(points[l,2])]
+                        w+=u3[int(points[j,0]), int(points[k,1]), int(points[l,2])]
+            u/=8
+            v/=8
+            w/=8
+        c.xdot_old[i, 0] = u
+        c.xdot_old[i, 1] = v
+        c.xdot_old[i, 2] = w
+        # Initialize the components of gfun that correspond to the velocities:
+        c.gfun_old[3*i] = c.xdot_old[i, 0]
+        c.gfun_old[3*i+1] = c.xdot_old[i, 1]
+        c.gfun_old[3*i+2] = c.xdot_old[i, 2]
+        # Initialize the components of the z vector:
+        c.z_old[3*i] = c.x_old[i, 0]
+        c.z_old[3*i+1] = c.x_old[i, 1]
+        c.z_old[3*i+2] = c.x_old[i, 2]
+        c.z_old[n_plus*3 + 3*i] = c.xdot_old[i, 0]
+        c.z_old[n_plus*3 + 3*i+1] = c.xdot_old[i, 1]
+        c.z_old[n_plus*3 + 3*i+2] = c.xdot_old[i, 2]
+        # Note how the z vector and the gfun are defined: the first 3 components
+        # ([0], [1], [2]) correspond to the position vector of the mass point 0,
+        # the next three ([3], [4], [5]) correspond to the position vector of
+        # the mass point 1, and so on, until the component [3*n_plus] is reached
+        # and then the components ([3*n_plus], [3*n_plus+1], [3*n_plus+2])
+        # correspond to the velocity vector of the mass point 0, the next three
+        # ([3*n_plus+3], [3*n_plus+4], [3*n_plus+5]) correspond to the velocity
+        # vector of the mass point 1, and so on. There are a total of n_plus
+        # mass points, i=0,1,...,n.
+    c.xdot_last[:]=c.xdot_old[:]
+    # Following Hostettler's notation presented in the report (note that not
+    # all the variables really have n_plus components, but for convenience all
+    # the variables were given size n_plus and then only the corresponding
+    # components by index i are calculated, and the rest of the unnecessary
+    # components are given the value of zero):
+
+    c.G[0, ...] = fibutils_2way.func_G(c.m[0])         # the spider's grav force
+    # loop over all the mass points i = 1, ..., n (all of them without the spider)
+    for i in range(1, n_plus):
+        c.r[i, ...] = fibutils_2way.func_r(c.x_old[i, ...], c.x_old[i-1, ...])
+        c.r_abs[i] = fibutils_2way.func_r_abs(c.r[i, ...])
+        c.e_r[i, ...] = fibutils_2way.func_e_r(c.r[i, ...], c.r_abs[i])
+        c.rdot[i, ...] = fibutils_2way.func_rdot(c.xdot_old[i, ...], c.xdot_old[i-1, ...])
+        c.angdot[i, ...] = fibutils_2way.func_angdot(c.e_r[i, ...], c.rdot[i, ...], c.r_abs[i])
+        c.eps[i] = fibutils_2way.func_eps(c.r_abs[i])
+        c.epsdot[i] = fibutils_2way.func_epsdot(c.e_r[i, ...], c.rdot[i, ...])
+
+        c.F_k[i, ...] = fibutils_2way.func_F_k(c.eps[i], c.e_r[i, ...])
+        c.F_d[i, ...] = fibutils_2way.func_F_d(c.epsdot[i], c.e_r[i, ...])
+        c.F[i, ...] = fibutils_2way.func_F(c.F_k[i, ...], c.F_d[i, ...])
+        c.G[i, ...] = fibutils_2way.func_G(c.m[i])
+
+        if i > 1:
+            c.s[i] = fibutils_2way.func_s(c.r_abs[i], c.r_abs[i-1])
+            c.ang[i] = fibutils_2way.func_ang(c.e_r[i, ...], c.e_r[i-1, ...])
+            c.cross_e[i] = fibutils_2way.func_cross_e(c.e_r[i, ...], c.e_r[i-1, ...])
+            c.cross_e_abs[i] = fibutils_2way.func_cross_e_abs(c.cross_e[i])
+            c.e_n[i, ...] = fibutils_2way.func_e_n(c.cross_e[i], c.cross_e_abs[i])
+            c.kappa[i, ...] = fibutils_2way.func_kappa(c.ang[i], c.s[i], c.e_n[i, ...])
+            c.kappadot[i, ...] = fibutils_2way.func_kappadot(c.angdot[i, ...], c.angdot[i-1, ...], c.s[i])
+
+            c.M_b[i, ...] = fibutils_2way.func_M_b(c.kappa[i, ...])
+            c.M_c[i, ...] = fibutils_2way.func_M_c(c.kappadot[i, ...])
+            c.M[i, ...] = fibutils_2way.func_M(c.M_b[i, ...], c.M_c[i, ...])
+
+        # The drag forces need to be defined for the coupled solver!
+        # Otherwise, for only fiber dynamics, these are zero
+        if config.params.coupled_solver:
+            # Drag forces initialized to zero
+            c.D_n[i, ...] = np.zeros(3)
+            c.D_l[i, ...] = np.zeros(3)
+            c.D[i, ...] = np.zeros(3)
+
+    # Mass points n:
+    c.Q[n, ...] = fibutils_2way.func_Q(c.M[n, ...], np.zeros(3), c.r[n, ...], c.r_abs[n])
+
+    if config.params.coupled_solver:
+        if config.params.fib_fixed:
+            c.gfun_old[6*n_plus-3 : 6*n_plus] = np.zeros(3)
+        else:
+            c.gfun_old[6*n_plus-3 : 6*n_plus] = fibutils_2way.func_gfun_n(
+                            c.m[i], c.G[n, ...], c.D[n, ...], c.F[n, ...], c.Q[n, ...])
+    else:
+        c.gfun_old[6*n_plus-3 : 6*n_plus] = fibutils_2way.func_gfun_n(
+                    c.m[i], c.G[n, ...], c.D[n, ...], c.F[n, ...], c.Q[n, ...])
+
+    c.xdotdot_old[n, ...] = np.copy(c.gfun_old[6*n_plus-3 : 6*n_plus])
+
+    # loop in reverse order over mass points i = n-1, ..., 2, 1:
+    for i in range(n-1, 0, -1):
+        c.Q[i, ...] = fibutils_2way.func_Q(c.M[i, ...], c.M[i+1, ...],
+                                c.r[i, ...], c.r_abs[i])
+
+        if i == config.params.fib_BC_index_F and test == "bend":
+            c.gfun_old[3*n_plus + 3*i : 3*n_plus + 3*i+3] = fibutils_2way.func_gfun(
+                c.m[i], c.G[i, ...], c.D[i, ...],
+                c.F[i, ...], c.Q[i, ...], c.F[i+1, ...], c.Q[i+1, ...]) +\
+                np.array([0, 0, (1 / c.m[i]) * config.params.fib_BC_Fz])
+
+        else:
+            c.gfun_old[3*n_plus + 3*i : 3*n_plus + 3*i+3] = fibutils_2way.func_gfun(
+                c.m[i], c.G[i, ...], c.D[i, ...],
+                c.F[i, ...], c.Q[i, ...], c.F[i+1, ...], c.Q[i+1, ...])
+
+        c.xdotdot_old[i, ...] = np.copy(c.gfun_old[3*n_plus + 3*i : 3*n_plus + 3*i+3])
+
+    # Mass points 0:
+
+    c.gfun_old[3*n_plus : 3*n_plus + 3] = fibutils_2way.func_gfun_0(
+            c.m[0], c.G[0, ...], c.F[1, ...], c.Q[1, ...])
+
+    c.xdotdot_old[0, ...] = np.copy(c.gfun_old[3*n_plus : 3*n_plus + 3])
+
+    # NOTE: ndarray to list (A of type ndarray) -> B = np.ndarray.tolist(A)
+    # NOTE: list to ndarray (B of type list) -> A = np.array(B)
 
 if __name__ == "__main__":
 

@@ -129,33 +129,33 @@ def writetofile(c, stringfile1, stringfile2, stringfile3):
         with open(stringfile1, mode='w', newline='') as csvfile:
             visualwriter = csv.writer(csvfile, delimiter=',',
                                 quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            visualwriter.writerow([config.params.t] + list(c.x_new[..., 0]))
+            visualwriter.writerow([config.params.t] + list(c.x_new[..., 0]) + ["Drag_Force"] + list(c._D[...,0]))
 
         with open(stringfile2, mode='w', newline='') as csvfile:
             visualwriter = csv.writer(csvfile, delimiter=',',
                                 quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            visualwriter.writerow([config.params.t] + list(c.x_new[..., 1]))
+            visualwriter.writerow([config.params.t] + list(c.x_new[..., 1]) + ["Drag_Force"] + list(c._D[...,1]))
 
         with open(stringfile3, mode='w', newline='') as csvfile:
             visualwriter = csv.writer(csvfile, delimiter=',',
                                 quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            visualwriter.writerow([config.params.t] + list(c.x_new[..., 2]))
+            visualwriter.writerow([config.params.t] + list(c.x_new[..., 2]) + ["Drag_Force"] + list(c._D[...,2]))
 
     else:
         with open(stringfile1, mode='a+', newline='') as csvfile:
             visualwriter = csv.writer(csvfile, delimiter=',',
                                 quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            visualwriter.writerow([config.params.t] + list(c.x_new[..., 0]))
+            visualwriter.writerow([config.params.t] + list(c.x_new[..., 0]) + ["Drag_Force"] + list(c._D[...,0]))
 
         with open(stringfile2, mode='a+', newline='') as csvfile:
             visualwriter = csv.writer(csvfile, delimiter=',',
                                 quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            visualwriter.writerow([config.params.t] + list(c.x_new[..., 1]))
+            visualwriter.writerow([config.params.t] + list(c.x_new[..., 1]) + ["Drag_Force"] + list(c._D[...,1]))
 
         with open(stringfile3, mode='a+', newline='') as csvfile:
             visualwriter = csv.writer(csvfile, delimiter=',',
                                 quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            visualwriter.writerow([config.params.t] + list(c.x_new[..., 2]))
+            visualwriter.writerow([config.params.t] + list(c.x_new[..., 2]) + ["Drag_Force"] + list(c._D[...,2]))
 
 def check_parameters(sol):
     print("\n#--------------------------- PARAMETERS ---------------------------#\n")

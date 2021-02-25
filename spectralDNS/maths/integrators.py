@@ -159,14 +159,15 @@ def RK4(u0, u1, u2, rhs, a, b, dt, solver, context):
         rhs = solver.ComputeRHS(rhs, u0, solver, **context)
         if rk < 3:
             u0[:] = u1 + b[rk]*dt*rhs
-        u2 += a[rk]*dt*rhs
-    u0[:] = u2
+        u2[:] += a[rk]*dt*rhs
+    u0[:] = u2[:]
     return u0, dt, dt
 
 @optimizer
 def ForwardEuler(u0, rhs, dt, solver, context):
     rhs = solver.ComputeRHS(rhs, u0, solver, **context)
     u0 += rhs*dt
+    print("Euler")
     return u0, dt, dt
 
 @optimizer
